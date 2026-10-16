@@ -7,11 +7,14 @@ import logging
 
 from app.api.routes import router
 from app.config import settings
+from app.core.openrouter import load_persisted_key, openrouter
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
 )
+
+load_persisted_key()  # ключ из storage/settings.json или .env
 
 app = FastAPI(
     title="AURI Studio",
@@ -39,5 +42,5 @@ async def health():
         "status": "ok",
         "ffmpeg": settings.FFMPEG_PATH,
         "ffprobe": settings.FFPROBE_PATH,
-        "openrouter_configured": bool(settings.OPENROUTER_API_KEY),
+        "openrouter_configured": openrouter.is_configured,
     }

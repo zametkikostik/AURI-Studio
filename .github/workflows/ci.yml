@@ -9,6 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      OPENROUTER_API_KEY: "sk-or-v1-ci-dummy-key-for-import-tests"
+      STORAGE_ROOT: ./storage
+      PYTHONPATH: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
 
@@ -16,6 +20,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Ensure static dir
+        run: mkdir -p static && touch static/.gitkeep
 
       - name: Install system deps
         run: |
@@ -32,14 +39,15 @@ jobs:
         run: |
           python -c "
           from app.config import settings
-          from app.core.openrouter import openrouter
+          from app.core.openrouter import openrouter, set_api_key, get_api_key
           from app.services.director.agent import DirectorAgent
           from app.services.rendering.ffmpeg_engine import FFmpegEngine
-          from app.services.rendering.timeline import HAS_OTIO, plan_to_otio
+          from app.services.rendering.timeline import HAS_OTIO
           from app.main import app
           print('All imports OK')
           print('OTIO available:', HAS_OTIO)
           print('FFmpeg:', settings.FFMPEG_PATH)
+          print('API key configured:', openrouter.is_configured)
           "
 
       - name: OpenAPI schema
@@ -52,5 +60,6 @@ jobs:
           for p in paths:
               print(' ', p)
           assert '/api/v1/projects' in schema['paths']
+          assert '/api/v1/settings/api-key' in schema['paths']
           print('OpenAPI OK')
           "

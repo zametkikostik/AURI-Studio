@@ -1,6 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec for Linux
-
 block_cipher = None
 
 a = Analysis(
@@ -9,7 +7,6 @@ a = Analysis(
     binaries=[],
     datas=[
         ('../templates', 'templates'),
-        ('../static', 'static'),
         ('../.env.example', '.'),
     ],
     hiddenimports=[
@@ -26,11 +23,8 @@ a = Analysis(
         'app.utils', 'app.utils.files', 'app.config',
     ],
     hookspath=[],
-    hooksconfig={},
     runtime_hooks=[],
     excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
@@ -42,9 +36,6 @@ exe = EXE(
     exclude_binaries=True,
     name='auri',
     debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
     console=True,
 )
 

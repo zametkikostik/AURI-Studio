@@ -15,41 +15,35 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
+  OPENROUTER_API_KEY: "sk-or-v1-ci-dummy-key"
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      - name: Ensure static dir
+        run: mkdir -p static && touch static/.gitkeep static/README.md
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
       - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg libgl1
-
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
-
-      - name: Build with PyInstaller
+      - name: Build package
         run: |
-          pyinstaller --noconfirm --clean packaging/auri-linux.spec
-          mkdir -p dist/auri-linux
-          cp -r dist/auri/* dist/auri-linux/ 2>/dev/null || cp dist/auri dist/auri-linux/
           mkdir -p dist/auri-studio-linux
-          cp -r dist/auri-linux/* dist/auri-studio-linux/ || true
-          cp -r app templates static scripts .env.example README.md requirements.txt Dockerfile docker-compose.yml dist/auri-studio-linux/
+          cp -r app templates static scripts packaging .env.example README.md requirements.txt Dockerfile docker-compose.yml dist/auri-studio-linux/
           cp packaging/run-linux.sh dist/auri-studio-linux/
-          chmod +x dist/auri-studio-linux/run-linux.sh
+          chmod +x dist/auri-studio-linux/run-linux.sh dist/auri-studio-linux/scripts/*.sh dist/auri-studio-linux/packaging/*.sh || true
           cd dist && tar -czf auri-studio-linux-x64.tar.gz auri-studio-linux
-
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
@@ -60,34 +54,25 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
+      - name: Ensure static dir
+        shell: bash
+        run: mkdir -p static && touch static/.gitkeep static/README.md
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
-
-      - name: Build with PyInstaller
+      - name: Build portable package
+        shell: bash
         run: |
-          pyinstaller --noconfirm --clean packaging/auri-windows.spec
-          mkdir dist\auri-studio-windows
-          xcopy /E /I /Y dist\auri\* dist\auri-studio-windows\
-          xcopy /E /I /Y app dist\auri-studio-windows\app\
-          xcopy /E /I /Y templates dist\auri-studio-windows\templates\
-          xcopy /E /I /Y static dist\auri-studio-windows\static\
-          xcopy /E /I /Y scripts dist\auri-studio-windows\scripts\
-          copy .env.example dist\auri-studio-windows\
-          copy README.md dist\auri-studio-windows\
-          copy requirements.txt dist\auri-studio-windows\
-          copy packaging\run-windows.bat dist\auri-studio-windows\
+          mkdir -p dist/auri-studio-windows
+          cp -r app templates static scripts packaging .env.example README.md requirements.txt dist/auri-studio-windows/
+          cp packaging/run-windows.bat dist/auri-studio-windows/
           cd dist
-          Compress-Archive -Path auri-studio-windows -DestinationPath auri-studio-windows-x64.zip
-
+          powershell -Command "Compress-Archive -Path auri-studio-windows -DestinationPath auri-studio-windows-x64.zip"
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
@@ -98,26 +83,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      - name: Ensure static dir
+        run: mkdir -p static && touch static/.gitkeep static/README.md
       - name: Package for Termux / Android
         run: |
           mkdir -p dist/auri-studio-android
-          cp -r app templates static scripts .env.example README.md requirements.txt Dockerfile docker-compose.yml dist/auri-studio-android/
+          cp -r app templates static scripts packaging .env.example README.md requirements.txt Dockerfile docker-compose.yml dist/auri-studio-android/
           cp packaging/install-termux.sh dist/auri-studio-android/
           cp packaging/run-termux.sh dist/auri-studio-android/
           chmod +x dist/auri-studio-android/*.sh
-          cat > dist/auri-studio-android/ANDROID.md << 'ANDROIDMD'
-          # AURI Studio on Android (Termux)
-
-          1. Install Termux from F-Droid.
-          2. Copy this folder into Termux (or git clone).
-          3. Run:
-             bash install-termux.sh
-             bash run-termux.sh
-          4. Open in phone browser: http://localhost:8000
-          ANDROIDMD
+          echo '# AURI Studio Android (Termux)' > dist/auri-studio-android/ANDROID.md
           cd dist && tar -czf auri-studio-android-termux.tar.gz auri-studio-android
-
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
@@ -129,15 +105,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
       - name: Display structure
         run: find artifacts -type f
-
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
 from typing import Optional
 import json
@@ -7,6 +7,8 @@ from app.services.ingestion import IngestionService
 from app.workers.tasks import full_pipeline, index_project, create_timeline, render_project
 from app.utils.files import get_project_dirs
 from app.api.schemas import ProjectCreateResponse, JobResponse, ProjectStatus
+from app.core.openrouter import set_api_key, get_api_key, openrouter
+from pydantic import BaseModel
 
 router = APIRouter()
 ingestion = IngestionService()
@@ -21,6 +23,8 @@ async def create_project(
 ):
     if not brief.strip():
         raise HTTPException(400, "Brief (ТЗ) не может быть пустым")
+    if not openrouter.is_configured:
+        raise HTTPException(400, "Сначала задайте OpenRouter API key в настройках")
 
     meta = await ingestion.create_project(video=video, brief=brief)
 
@@ -136,14 +140,39 @@ async def download_otio(project_id: str):
     )
 
 
+class ApiKeyBody(BaseModel):
+    api_key: str
+
+
+@router.get("/settings/api-key")
+async def get_api_key_status():
+    key = get_api_key()
+    masked = ""
+    if key:
+        masked = (key[:8] + "…" + key[-4:]) if len(key) > 12 else "****"
+    return {"configured": bool(key), "masked_key": masked, "source": "runtime_or_env"}
+
+
+@router.post("/settings/api-key")
+async def save_api_key(body: ApiKeyBody):
+    key = (body.api_key or "").strip()
+    if not key:
+        raise HTTPException(400, "api_key пустой")
+    set_api_key(key)
+    return {"ok": True, "configured": True, "message": "API key сохранён"}
+
+
+@router.delete("/settings/api-key")
+async def clear_api_key():
+    set_api_key("")
+    return {"ok": True, "configured": False, "message": "API key удалён"}
+
+
 @router.get("/jobs/{task_id}")
 async def get_job_status(task_id: str):
     from app.workers.celery_app import celery_app
     result = celery_app.AsyncResult(task_id)
-    response = {
-        "task_id": task_id,
-        "status": result.status,
-    }
+    response = {"task_id": task_id, "status": result.status}
     if result.status == "PROGRESS":
         response["meta"] = result.info
     elif result.status == "SUCCESS":

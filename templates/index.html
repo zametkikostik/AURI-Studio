@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>AURI Studio — AI Video Editor</title>
+  <style>
+    :root {
+      --bg: #0f1117; --card: #1a1d27; --border: #2a2e3b; --text: #e8eaed;
+      --muted: #9aa0a6; --accent: #7c5cff; --accent-hover: #9b82ff;
+      --success: #34d399; --danger: #f87171;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100dvh;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 16px; }
+    header { text-align: center; padding: 28px 0 20px; }
+    header h1 {
+      font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #a78bfa, #7c5cff, #38bdf8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    header p { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px; margin-bottom: 16px;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 14px; font-weight: 600; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    input[type="file"], textarea {
+      width: 100%; background: #12141c; border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); padding: 12px 14px;
+      font-size: 0.95rem; margin-bottom: 14px;
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 100%; background: var(--accent); color: white; border: none;
+      border-radius: 12px; padding: 14px 20px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text); margin-top: 10px;
+    }
+    .status { padding: 12px 16px; border-radius: 10px; font-size: 0.9rem; margin-top: 12px; display: none; }
+    .status.show { display: block; }
+    .status.info { background: #1e293b; color: #93c5fd; }
+    .status.success { background: #064e3b; color: var(--success); }
+    .status.error { background: #450a0a; color: var(--danger); }
+    .progress-bar {
+      height: 6px; background: var(--border); border-radius: 3px;
+      overflow: hidden; margin-top: 10px; display: none;
+    }
+    .progress-bar.show { display: block; }
+    .progress-bar span {
+      display: block; height: 100%;
+      background: linear-gradient(90deg, var(--accent), #38bdf8);
+      width: 0%; transition: width 0.4s;
+    }
+    .project-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid var(--border); gap: 12px;
+    }
+    .project-item:last-child { border-bottom: none; }
+    .project-info { flex: 1; min-width: 0; }
+    .project-info .name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .project-info .meta { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+    .badge { font-size: 0.75rem; padding: 3px 8px; border-radius: 20px; font-weight: 500; }
+    .badge.ingested { background: #1e293b; color: #94a3b8; }
+    .badge.processing, .badge.indexed, .badge.timeline_ready { background: #1e3a5f; color: #60a5fa; }
+    .badge.rendered { background: #064e3b; color: var(--success); }
+    .download-btn {
+      background: var(--success); color: #064e3b; border: none; border-radius: 8px;
+      padding: 6px 12px; font-size: 0.8rem; font-weight: 600; text-decoration: none; white-space: nowrap;
+    }
+    footer { text-align: center; padding: 24px 0; color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AURI Studio</h1>
+      <p>Автономный ИИ-видеомонтаж по текстовому ТЗ</p>
+    </header>
+
+    <div class="card">
+      <h2>Новый проект</h2>
+      <form id="uploadForm">
+        <label>Видеофайл</label>
+        <input type="file" id="video" accept="video/*" required />
+        <label>Техническое задание (что нужно получить)</label>
+        <textarea id="brief" placeholder="Например: Сделай динамичный ролик 40-50 секунд для Reels." required></textarea>
+        <button type="submit" class="btn" id="submitBtn">Создать и запустить монтаж</button>
+      </form>
+      <div class="status" id="status"></div>
+      <div class="progress-bar" id="progress"><span></span></div>
+    </div>
+
+    <div class="card">
+      <h2>Мои проекты</h2>
+      <div class="projects" id="projects">
+        <p style="color: var(--muted); font-size: 0.9rem;">Пока пусто</p>
+      </div>
+      <button class="btn btn-secondary" onclick="loadProjects()">Обновить список</button>
+    </div>
+
+    <footer>AURI Studio · Open Source · Работает через OpenRouter</footer>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const progressEl = document.getElementById('progress');
+    const progressBar = progressEl.querySelector('span');
+    const submitBtn = document.getElementById('submitBtn');
+
+    function showStatus(msg, type = 'info') {
+      statusEl.textContent = msg;
+      statusEl.className = 'status show ' + type;
+    }
+    function setProgress(pct) {
+      progressEl.classList.add('show');
+      progressBar.style.width = pct + '%';
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const video = document.getElementById('video').files[0];
+      const brief = document.getElementById('brief').value.trim();
+      if (!video || !brief) return;
+
+      submitBtn.disabled = true;
+      showStatus('Загружаю видео...', 'info');
+      setProgress(5);
+
+      const form = new FormData();
+      form.append('video', video);
+      form.append('brief', brief);
+      form.append('auto_start', 'true');
+      form.append('language', 'ru');
+
+      try {
+        const res = await fetch('/api/v1/projects', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Ошибка загрузки');
+        showStatus('Проект создан. Идёт обработка...', 'info');
+        setProgress(15);
+        pollUntilDone(data.project_id);
+      } catch (err) {
+        showStatus('Ошибка: ' + err.message, 'error');
+        submitBtn.disabled = false;
+        progressEl.classList.remove('show');
+      }
+    });
+
+    async function pollUntilDone(projectId) {
+      for (let i = 0; i < 180; i++) {
+        await sleep(5000);
+        try {
+          const res = await fetch('/api/v1/projects/' + projectId);
+          const p = await res.json();
+          const st = p.status;
+          if (st === 'indexed') { showStatus('Индексация завершена, режиссёр работает...', 'info'); setProgress(50); }
+          else if (st === 'timeline_ready') { showStatus('Монтажный план готов, идёт рендер...', 'info'); setProgress(75); }
+          else if (st === 'rendered') {
+            showStatus('Готово! Видео можно скачать.', 'success');
+            setProgress(100); submitBtn.disabled = false; loadProjects(); return;
+          } else if (st === 'ingested' || st === 'processing') {
+            showStatus('Обработка... (' + st + ')', 'info');
+            setProgress(20 + i * 0.3);
+          }
+        } catch (e) {}
+      }
+      showStatus('Время ожидания истекло. Проверьте список проектов.', 'error');
+      submitBtn.disabled = false;
+    }
+
+    async function loadProjects() {
+      const el = document.getElementById('projects');
+      try {
+        const res = await fetch('/api/v1/projects');
+        const list = await res.json();
+        if (!list.length) {
+          el.innerHTML = '<p style="color:var(--muted);font-size:0.9rem">Пока пусто</p>';
+          return;
+        }
+        el.innerHTML = list.map(p =>
+          '<div class="project-item"><div class="project-info">' +
+          '<div class="name">' + (p.original_filename || p.project_id.slice(0,8)) + '</div>' +
+          '<div class="meta">' + (p.brief || '').slice(0,60) + '</div></div>' +
+          '<span class="badge ' + p.status + '">' + p.status + '</span>' +
+          (p.status === 'rendered'
+            ? '<a class="download-btn" href="/api/v1/projects/' + p.project_id + '/download">Скачать</a>'
+            : '') +
+          '</div>'
+        ).join('');
+      } catch (e) {
+        el.innerHTML = '<p style="color:var(--danger)">Не удалось загрузить</p>';
+      }
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    loadProjects();
+  </script>
+</body>
+</html>

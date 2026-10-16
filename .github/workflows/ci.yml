@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Import check
+        run: |
+          python -c "
+          from app.config import settings
+          from app.core.openrouter import openrouter
+          from app.services.director.agent import DirectorAgent
+          from app.services.rendering.ffmpeg_engine import FFmpegEngine
+          from app.services.rendering.timeline import HAS_OTIO, plan_to_otio
+          from app.main import app
+          print('All imports OK')
+          print('OTIO available:', HAS_OTIO)
+          print('FFmpeg:', settings.FFMPEG_PATH)
+          "
+
+      - name: OpenAPI schema
+        run: |
+          python -c "
+          from app.main import app
+          schema = app.openapi()
+          paths = sorted(schema.get('paths', {}).keys())
+          print('API paths:')
+          for p in paths:
+              print(' ', p)
+          assert '/api/v1/projects' in schema['paths']
+          print('OpenAPI OK')
+          "
